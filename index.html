@@ -233,6 +233,11 @@ pre.codeblk{font-family:var(--f-mono);font-size:.85rem;background:var(--tile);bo
 .fnav{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .gotoind{display:inline-block;margin-top:8px}
 .pind{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px;padding:8px 12px;border-radius:10px;background:var(--accent-soft);font-size:.92rem}
+.bk{margin:6px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.bk b{display:block;margin-bottom:4px}
+.bk p{margin:0 0 10px;font-size:.9rem;color:var(--muted)}
+.bk.warn{border-color:var(--warn);background:var(--warn-soft)}
+.bk .btnrow{margin:0}
 @media (prefers-reduced-motion:no-preference){.why{animation:in .18s ease-out}@keyframes in{from{opacity:.4;transform:translateY(3px)}to{opacity:1;transform:none}}}
 </style>
 
@@ -275,6 +280,7 @@ pre.codeblk{font-family:var(--f-mono);font-size:.85rem;background:var(--tile);bo
     <div class="grid" id="stdGrid"></div>
     <div class="legend"><span><i style="background:var(--part-a)"></i>العلم والمختبر</span><span><i style="background:var(--accent)"></i>المحتوى الكيميائي</span><span><i style="background:var(--part-c)"></i>التدريس والتقويم</span></div>
     <p class="note" id="saveNote" style="margin-top:18px"></p>
+    <div class="bk" id="backupBox"></div>
   </section>
 
   <section id="v-study" hidden><div id="sBox"></div></section>
@@ -458,7 +464,7 @@ function renderDomains(){
 }
 function renderHome(){
   refreshCounts();
-  renderHero();renderToday();renderDomains();
+  renderHero();renderToday();renderDomains();renderBackup();
   const g=$('stdGrid'); g.replaceChildren();
   for(const [code,name,part] of STD){
     const qs=bank.filter(q=>q.std===code);
@@ -826,6 +832,50 @@ function renderIndLesson(c,code,L0){
   if(L0.cards&&L0.cards.length){const d=el('details','box');d.append(el('summary',null,'بطاقات المراجعة ('+L0.cards.length+')'));const w=el('div');w.style.paddingTop='10px';w.append(flashBlock(L0.cards));d.append(w);c.append(d)}
 }
 
+/* ---------- progress backup ---------- */
+const BKKEY='chem-bank-lastbk';
+function isStatic(){return !!window.__BANK_DATA}
+function lastBk(){try{return +localStorage.getItem(BKKEY)||0}catch(e){return 0}}
+function mergeProg(inc){
+  if(!inc||typeof inc!=='object'||!inc.a||typeof inc.a!=='object')throw new Error('bad');
+  let n=0;
+  for(const k in inc.a){const v=inc.a[k];if(!v||typeof v!=='object')continue;if(!prog.a[k]||(v.t||0)>(prog.a[k].t||0)){prog.a[k]=v;n++}}
+  prog.st=prog.st||{};for(const k in (inc.st||{}))prog.st[k]=Math.max(prog.st[k]||0,inc.st[k]||0);
+  prog.star=prog.star||{};for(const k in (inc.star||{}))if(inc.star[k])prog.star[k]=1;
+  if(inc.exam&&!prog.exam)prog.exam=inc.exam;
+  const seen=new Set((prog.mocks||[]).map(m=>m.at));prog.mocks=[...(prog.mocks||[]),...(inc.mocks||[]).filter(m=>m&&!seen.has(m.at))].sort((a,b)=>a.at-b.at).slice(-50);
+  return n;
+}
+async function exportProg(msg){
+  const data=JSON.stringify({app:'chem-license-bank',v:1,at:Date.now(),prog});
+  const d=new Date();const name='taqaddumi-kimya-'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.json';
+  let ok=false;
+  if(!isStatic()){try{const dl=await (window.claude?.use?.('downloads')??null);if(dl){await dl.save({filename:name,data:new Blob([data],{type:'application/json'})});ok=true}}catch(e){msg.textContent='لم يتم الحفظ.';return}}
+  if(!ok){try{const u=URL.createObjectURL(new Blob([data],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);ok=true}catch(e){}}
+  if(ok){try{localStorage.setItem(BKKEY,String(Date.now()))}catch(e){}renderBackup();$('backupBox').querySelector('.note').textContent='تم تنزيل الملف ('+name+'). احتفظي به في مكان آمن مثل Google Drive.'}
+  else msg.textContent='تعذر تنزيل الملف من هذا العرض.';
+}
+function importProg(msg){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+  inp.onchange=async()=>{const f=inp.files&&inp.files[0];if(!f)return;
+    try{const j=JSON.parse(await f.text());const n=mergeProg(j.prog||j);queueSave();if(view==='home')renderHome();
+      $('backupBox').querySelector('.note').textContent='تم دمج التقدم: '+n+' سؤالاً أُضيف أو حُدّث، ولم يُحذف شيء من تقدمك الحالي.'}
+    catch(e){msg.textContent='الملف غير صالح. اختاري ملف التقدم الذي نزّلتِه من الموقع (ينتهي بـ .json).'}};
+  inp.click();
+}
+function renderBackup(){
+  const box=$('backupBox');if(!box)return;
+  const n=Object.keys(prog.a||{}).length;const lb=lastBk();const days=lb?Math.floor((Date.now()-lb)/DAY):null;
+  const st=isStatic();const stale=st&&n>0&&(days==null||days>=7);
+  box.className='bk'+(stale?' warn':'');box.replaceChildren();
+  box.append(el('b',null,'نسخة احتياطية لتقدمك'));
+  box.append(el('p',null,st?('تقدمك في هذه النسخة محفوظ في هذا المتصفح فقط، ويضيع إذا مُسحت بيانات المتصفح أو غيّرتِ الجهاز. نزّلي ملف التقدم مرة في الأسبوع على الأقل، وتقدرين تستعيدينه في أي جهاز أو في نسخة Claude. '+(lb?(days===0?'آخر نسخة: اليوم.':'آخر نسخة: قبل '+days+' يوم.'):'لم تنزّلي نسخة بعد.')):'تقدمك محفوظ في حسابك ويظهر على كل أجهزتك. تقدرين تنزّلين ملفاً منه لنقله إلى نسخة GitHub، أو تدمجين هنا ملفاً نزّلتِه من نسخة GitHub.'));
+  const row=el('div','btnrow');const msg=el('p','note');
+  const ex=el('button','btn'+(stale?' primary':''),'نزّلي ملف التقدم');ex.type='button';ex.onclick=()=>exportProg(msg);
+  const im=el('button','btn','استعيدي من ملف');im.type='button';im.onclick=()=>importProg(msg);
+  row.append(ex,im);box.append(row,msg);
+}
+
 /* ---------- log ---------- */
 function renderLog(){
   const box=$('logBox');
@@ -850,6 +900,7 @@ function emptyBank(){return el('div','empty',db?'جارٍ تحميل بنك ال
 
 /* ---------- static mode (GitHub Pages): data from data.json, progress in this browser ---------- */
 async function staticDb(){
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
   let D=window.__BANK_DATA||null;if(!D){try{const r=await fetch('data.json',{cache:'no-cache'});D=await r.json()}catch(e){return null}}
   const snapOf=arr=>({docs:arr.map(x=>({data:()=>x}))});
   const cols={bank:D.bank||[],lessons:D.lessons||[]};
