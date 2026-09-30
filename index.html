@@ -50,6 +50,8 @@ nav.tabs .short{display:none}
   nav.tabs .n{position:absolute;top:2px;inset-inline-end:4px;margin:0}
   main.wrap{padding-bottom:96px}
   header.top .wrap{padding-bottom:10px}
+  header.top{position:static}
+  .indsec{scroll-margin-top:12px}
 }
 nav.tabs .n{font-family:var(--f-mono);font-size:.75rem;background:var(--bad-soft);color:var(--bad);border-radius:99px;padding:0 6px;margin-inline-start:4px}
 main section{padding-top:20px}
@@ -852,7 +854,7 @@ async function exportProg(msg){
   let ok=false;
   if(!isStatic()){try{const dl=await (window.claude?.use?.('downloads')??null);if(dl){await dl.save({filename:name,data:new Blob([data],{type:'application/json'})});ok=true}}catch(e){msg.textContent='لم يتم الحفظ.';return}}
   if(!ok){try{const u=URL.createObjectURL(new Blob([data],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);ok=true}catch(e){}}
-  if(ok){try{localStorage.setItem(BKKEY,String(Date.now()))}catch(e){}renderBackup();$('backupBox').querySelector('.note').textContent='تم تنزيل الملف ('+name+'). احتفظي به في مكان آمن مثل Google Drive.'}
+  if(ok){try{localStorage.setItem(BKKEY,String(Date.now()))}catch(e){}renderBackup();$('backupBox').querySelector('.note').textContent='تم تنزيل الملف ('+name+'). احتفظ به في مكان آمن مثل Google Drive.'}
   else msg.textContent='تعذر تنزيل الملف من هذا العرض.';
 }
 function importProg(msg){
@@ -860,7 +862,7 @@ function importProg(msg){
   inp.onchange=async()=>{const f=inp.files&&inp.files[0];if(!f)return;
     try{const j=JSON.parse(await f.text());const n=mergeProg(j.prog||j);queueSave();if(view==='home')renderHome();
       $('backupBox').querySelector('.note').textContent='تم دمج التقدم: '+n+' سؤالاً أُضيف أو حُدّث، ولم يُحذف شيء من تقدمك الحالي.'}
-    catch(e){msg.textContent='الملف غير صالح. اختاري ملف التقدم الذي نزّلتِه من الموقع (ينتهي بـ .json).'}};
+    catch(e){msg.textContent='الملف غير صالح. اختر ملف التقدم الذي نزّلته من الموقع (ينتهي بـ .json).'}};
   inp.click();
 }
 function renderBackup(){
@@ -869,10 +871,10 @@ function renderBackup(){
   const st=isStatic();const stale=st&&n>0&&(days==null||days>=7);
   box.className='bk'+(stale?' warn':'');box.replaceChildren();
   box.append(el('b',null,'نسخة احتياطية لتقدمك'));
-  box.append(el('p',null,st?('تقدمك في هذه النسخة محفوظ في هذا المتصفح فقط، ويضيع إذا مُسحت بيانات المتصفح أو غيّرتِ الجهاز. نزّلي ملف التقدم مرة في الأسبوع على الأقل، وتقدرين تستعيدينه في أي جهاز أو في نسخة Claude. '+(lb?(days===0?'آخر نسخة: اليوم.':'آخر نسخة: قبل '+days+' يوم.'):'لم تنزّلي نسخة بعد.')):'تقدمك محفوظ في حسابك ويظهر على كل أجهزتك. تقدرين تنزّلين ملفاً منه لنقله إلى نسخة GitHub، أو تدمجين هنا ملفاً نزّلتِه من نسخة GitHub.'));
+  box.append(el('p',null,st?('تقدمك في هذه النسخة محفوظ في هذا المتصفح فقط، ويضيع إذا مُسحت بيانات المتصفح أو غيّرت الجهاز. نزّل ملف التقدم مرة في الأسبوع على الأقل، وتقدر تستعيده في أي جهاز أو في نسخة Claude. '+(lb?(days===0?'آخر نسخة: اليوم.':'آخر نسخة: قبل '+days+' يوم.'):'لم تنزّل نسخة بعد.')):'تقدمك محفوظ في حسابك ويظهر على كل أجهزتك. تقدر تنزّل ملفاً منه لنقله إلى نسخة GitHub، أو تدمج هنا ملفاً نزّلته من نسخة GitHub.'));
   const row=el('div','btnrow');const msg=el('p','note');
-  const ex=el('button','btn'+(stale?' primary':''),'نزّلي ملف التقدم');ex.type='button';ex.onclick=()=>exportProg(msg);
-  const im=el('button','btn','استعيدي من ملف');im.type='button';im.onclick=()=>importProg(msg);
+  const ex=el('button','btn'+(stale?' primary':''),'نزّل ملف التقدم');ex.type='button';ex.onclick=()=>exportProg(msg);
+  const im=el('button','btn','استعد من ملف');im.type='button';im.onclick=()=>importProg(msg);
   row.append(ex,im);box.append(row,msg);
 }
 
